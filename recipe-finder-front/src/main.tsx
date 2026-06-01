@@ -26,7 +26,7 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="/" element={<HomePage/>}/>
                         <Route path="/recipe/:recipeId" element={<Recipe/> }/>
                     </Routes>
-                </BrowserRouter>,
+                </BrowserRouter>
             </Box>
         </QueryClientProvider>
     </StrictMode>,

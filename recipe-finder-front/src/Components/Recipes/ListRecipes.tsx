@@ -25,12 +25,12 @@ export const ListRecipes = ({listingRecipes, onChangePage, metadata}: ListRecipe
 
 
     const calcIngredients = (recipe: MatchingRecipe) => {
-        const hasAllIndredients = recipe.matched_count === recipe.total_count
+        const hasAllIngredients = recipe.matched_count === recipe.total_count
         return (
             <div>
 
                 <Typography variant="body1" component="div">
-                    {hasAllIndredients
+                    {hasAllIngredients
                         ? '✅You have all ingredients'
                         : `${recipe.matched_count} / ${recipe.total_count} ingredients`
 
@@ -48,7 +48,7 @@ export const ListRecipes = ({listingRecipes, onChangePage, metadata}: ListRecipe
             <Grid container spacing={4}>
                 {listingRecipes?.map((recipe: MatchingRecipe) => {
                     return (
-                        <Grid size={4}>
+                        <Grid key={recipe.id} size={4}>
                             <Card sx={{height: '320px'}}>
                                 <CardContent>
                                     <Typography sx={{height: '65px', fontWeight: 'bold'}} variant="subtitle1" component="div">

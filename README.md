@@ -92,26 +92,23 @@ npm install
 Create a `.env` file at the root of `recipe-finder-api/` with your database URLs:
 
 ```env
-# Pooled URL for runtime queries
+# Used for runtime queries and migrations (pooled connection)
 DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 
-# Direct URL for migrations and seed
+# Used by the seed script only (direct connection, avoids PgBouncer limits)
 DIRECT_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 ```
 
+> **Note**: DIRECT_URL is used by the seed script to bypass connection pooling (the seed performs thousands of sequential inserts that would otherwise saturate the PgBouncer pool). For Neon, use the pooled URL with -pooler in the hostname for DATABASE_URL, and the direct URL for DIRECT_URL
+
 > **Note**: For a local Docker Postgres, both URLs are identical:  
 > `postgresql://postgres:postgres@localhost:5432/recipes`.  
-> For Neon, use the pooled URL for `DATABASE_URL` (with `-pooler` in the hostname) and the direct URL for `DIRECT_URL`.
+
 
 ### 3. Download the recipes dataset
 
-The dataset isn't committed to the repository (file size). Download it into the `prisma/` folder:
-
-```bash
-wget https://pennylane-interviewing-assets-20220328.s3.eu-west-1.amazonaws.com/recipes-en.json.gz
-gzip -dc recipes-en.json.gz > prisma/recipes-en.json
-rm recipes-en.json.gz
-```
+The dataset (`prisma/recipes-en.json`, ~5.6 MB) is committed to the repository
+for convenience. No additional download is required.
 
 ### 4. Apply migrations and seed the database
 

@@ -18,7 +18,6 @@ export const HomePage = () => {
     const [page, setPage] = useState(1);
     const {data, isFetching} = useRecipeMatching(submittedIngredients, page);
     const { _data: recipes = [], _metadata } = data ?? {};
-    console.log('recipes', recipes);
 
 
     const onAddIngredient = (ingredient: SelectedIngredients) => {
@@ -67,7 +66,7 @@ export const HomePage = () => {
                     <CircularProgress aria-label="Loading…" />
                 </Box>
             }
-            {!isFetching && data && recipes?.length > 0  &&
+            {!isFetching && data && recipes?.length === 0 &&
                 <Box sx={{padding: 3, margin: 1, backgroundColor: '#BED3C6', boxShadow: 3}}>
                     <Grid size={{xs: 12}}>
                         <Typography variant={"body1"}>No matching recipe with these ingredients.</Typography>

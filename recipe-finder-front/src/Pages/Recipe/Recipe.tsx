@@ -58,7 +58,7 @@ export const Recipe = () => {
                             <CardMedia
                                 component="img"
                                 image={resolveImageUrl(data.imageUrl)}
-                                alt="Paella dish"
+                                alt={data.title}
                             />
                         </Grid>
                         <Grid size={6}>

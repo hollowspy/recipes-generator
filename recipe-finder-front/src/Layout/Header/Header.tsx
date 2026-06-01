@@ -2,7 +2,8 @@ import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import {Link} from "react-router";
 
 
 export const Header = () => {
@@ -13,7 +14,10 @@ export const Header = () => {
                     <Typography variant="h4" component="div" sx={{flexGrow: 1, color: 'black'}}>
                         Technical Test Pennylane
                     </Typography>
-                    <Button color="inherit">Github</Button>
+                    <Link target="_blank" to={`https://github.com/pennylane-hiring/hollowspy`}>
+                        <GitHubIcon sx={{ color : 'black '}}/>
+                    </Link>
+
                 </Toolbar>
             </AppBar>
         </Box>

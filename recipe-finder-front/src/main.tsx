@@ -20,8 +20,8 @@ createRoot(document.getElementById('root')!).render(
         <CssBaseline/>
         <QueryClientProvider client={queryClient}>
             <Box sx={{background: '#DAFBF2', minHeight: '100vh'}}>
-                <Header/>
                 <BrowserRouter>
+                    <Header/>
                     <Routes>
                         <Route path="/" element={<HomePage/>}/>
                         <Route path="/recipe/:recipeId" element={<Recipe/> }/>

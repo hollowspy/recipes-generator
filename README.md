@@ -196,9 +196,26 @@ For the rest of the code, Claude.ai was used for some little feature or for debu
 
 ## Known Limitations
 
-**Improvement**: For this project, we still have too many missing match between ingredients you have and recipe you can do. Because I think the key of this project is how we could extract the ingredients from the JSON file and to find a better way. Obviously, having some rules handle by regex could be a good option (but regex have to be updated), but I suggest to use some LLM or AI API in order to:
 
-- Either use it when a user provide the ingredients (based on a sentence)
-- To create a prompt in order to extract the unique ingredients, and create a loop and parse it for each recipe => ⚠️ You could have a high cost to that and you have to think about new recipes and / or updated recipes
+### Ingredient long-tail and canonicalization
+
+The parser successfully strips units, brands, and basic adjectives, but
+does not build a semantic hierarchy between an ingredient and its
+variants. As a result, "tomato", "canned tomato", "cherry tomato",
+"beefsteak tomato" remain as distinct canonical entries instead of being
+linked. I estimate roughly 25-30% of the ~6500 canonical ingredients are
+variants that could be collapsed to broader categories with a more
+sophisticated approach.
+
+This explains why a user selecting a specific variant (e.g.,
+"beefsteak tomato") may see lower match counts than expected — recipes
+calling for generic "tomato" won't be returned.
+
+Possible evolutions (ordered by effort/value):
+- **Postgres full-text search**: stemming and substring resilience,
+  near-zero implementation cost.
+- **pg_trgm fuzzy matching**: handles typos and orthographic variants.
+- **Semantic embeddings (pgvector)**: true ontological awareness, e.g.,
+  recognizing "san marzano" as a tomato variety.
 
 

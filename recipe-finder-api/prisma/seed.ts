@@ -1,16 +1,20 @@
 /**
- * Script de seed Prisma.
+ * Script de seed Prisma — V5 (FINAL, ne plus itérer au-delà)
  *
  * Pipeline de parsing :
- *   1. Pre-clean : retire trademarks, parenthèses, fractions, nombres, %
- *   2. Strip units (cups, tbsp, oz...)
- *   3. Strip prep words (chopped, diced, fresh, ripe...)
- *   4. Strip modifiers (baby, buffalo, fat-free, italian, organic...)
- *   5. Strip known brand names (kraft, campbell's, ball park...)
- *   6. Singularize chaque token
- *   7. Mapping canonique sur tokens individuels (parmigiano → parmesan)
- *   8. Retire le suffixe "cheese" si un nom de fromage canonique est présent
- *   9. Mapping canonique sur le résultat complet (pour les patterns multi-mots)
+ *   1. Pre-clean : trademarks, parenthèses fermées et orphelines, fractions, nombres
+ *   2. Strip units (cups, tbsp, baskets, heads, stalks, pints, each...)
+ *   3. Strip modifiers (catch les hyphénés en entier AVANT prep_words)
+ *   4. Strip prep words (chopped, drained, halved, half, thin, style, cut...)
+ *   5. Strip storage forms (canned, jarred, pickled, smoked, cured...)
+ *   6. Strip known brand names (contadina, hunt's, kraft, swanson...)
+ *   7. Strip trailing "with X" (juice, liquid, basil, green chiles...)
+ *   8. Cleanup orphan hyphens
+ *   9. Singularize chaque token
+ *  10. Filtre POST-singularisation pour les stopwords créés par la pluralisation inverse
+ *  11. Mapping canonique sur tokens individuels (parmigiano → parmesan)
+ *  12. Retire le suffixe "cheese" si un nom de fromage canonique est présent
+ *  13. Mapping canonique sur le résultat complet (pour les patterns multi-mots)
  */
 
 import { PrismaClient } from '../generated/prisma/client';
@@ -35,22 +39,33 @@ const UNICODE_FRACTIONS = /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]/g;
 const NUMBERS = /\d+(\.\d+)?(\/\d+)?/g;
 
 const UNITS =
-  /\b(cups?|tsp|teaspoons?|tbsp|tablespoons?|oz|ounces?|lb|pounds?|g|grams?|kg|ml|l|liters?|pinch|dash|cloves?|pieces?|cans?|packages?|slices?|sticks?|jars?|bottles?|bunches?|bags?|boxes?|containers?)\b/gi;
+  /\b(cups?|tsp|teaspoons?|tbsp|tablespoons?|oz|ounces?|lb|pounds?|g|grams?|kg|ml|l|liters?|pinch|dash|cloves?|pieces?|cans?|packages?|slices?|sticks?|jars?|bottles?|bunches?|bags?|boxes?|containers?|quarts?|cartons?|cubes?|baskets?|heads?|stalks?|sprigs?|pints?|each)\b/gi;
 
-const PREP_WORDS =
-  /\b(chopped|diced|sliced|minced|shredded|grated|crushed|peeled|seeded|fresh|dried|frozen|cooked|raw|ground|finely|coarsely|thinly|roughly|large|small|medium|boneless|skinless|lean|whole|ripe|overripe|hot|cold|warm|softened|melted|beaten|cubed|mashed|packed|scalded|divided|to taste|optional|cut into)\b/gi;
-
-// Modificateurs qui ne sont pas des préparations mais des qualificatifs
-// (taille, forme, origine, diététique, qualité)
+// Modificateurs : appliqué AVANT PREP_WORDS pour préserver les hyphénés (sun-dried, fire-roasted, dry-pack)
 const MODIFIERS =
-  /\b(baby|mini|jumbo|ball|pearl|block|wedge|buffalo|italian|greek|french|american|mexican|asian|fat-free|low-fat|nonfat|skim|light|reduced-fat|low-sodium|unsalted|salted|organic|kosher|free-range|grass-fed|wild-caught|freshly)\b/gi;
+  /\b(baby|mini|jumbo|ball|pearl|block|wedge|buffalo|italian|greek|french|american|mexican|asian|fat-free|low-fat|nonfat|skim|light|reduced-fat|low-sodium|unsalted|salted|organic|kosher|free-range|grass-fed|wild-caught|freshly|chunky|smooth|creamy|lumpy|crunchy|chilled|room-temperature|chili-style|deep-fried|pan-fried|sun-dried|oven-dried|air-dried|hard-boiled|soft-boiled|fire-roasted|petite|extra-virgin|no-salt-added|vine-ripened|stone-ground|old-fashioned|dry-pack)\b/gi;
 
-// Marques courantes (à étendre si besoin selon ce que tu observes)
-const BRANDS = /\b(belgioioso|kraft|campbell's|hellmann's|heinz|ball park)\b/gi;
+// Prep words : actions / états de préparation
+const PREP_WORDS =
+  /\b(chopped|diced|sliced|minced|shredded|grated|crushed|peeled|seeded|fresh|dried|frozen|cooked|raw|ground|finely|coarsely|thinly|thin|roughly|large|small|medium|boneless|skinless|lean|whole|ripe|overripe|hot|cold|warm|softened|melted|beaten|cubed|mashed|packed|scalded|divided|to taste|optional|cut into|cut|drained|undrained|halved|half|rinsed|crumbled|juiced|pitted|prepared|thawed|toasted|trimmed|uncooked|quartered|cored|removed|roasted|deveined|zested|as needed|bone-in|skin-on|lightly|flaked|stewed|style)\b/gi;
+
+// Formes de stockage / conservation
+const STORAGE_FORMS =
+  /\b(canned|jarred|bottled|pickled|preserved|fermented|smoked|cured|brined)\b/gi;
+
+// Marques courantes (étendu via analyse data-driven)
+const BRANDS =
+  /\b(belgioioso|kraft|campbell's|hellmann's|heinz|ball park|swanson|contadina|tabasco|pillsbury|goya|bisquick|frank's|miracle whip|hunt's)\b/gi;
+
+// Suffixes "with X" — patterns observés dans le dataset
+const TRAILING_WITH =
+  /\s+with\s+(their\s+)?(juices?|liquid|water|oil|sauce|skin|leaves|tops|basil|garlic|active cultures|green chiles?|green chile pepper)\b.*$/i;
 
 const PARENS = /\([^)]*\)/g;
+const LEFTOVER_OPEN_PAREN = /\s*\([^)]*$/;
 const LEADING_OR = /^or\s+/;
 const LEADING_PUNCT = /^[-–—]\s*/;
+const ORPHAN_HYPHEN = /-(?=\s|$)|(?<=\s)-/g;
 
 const PANTRY_STAPLES = new Set([
   'salt',
@@ -71,9 +86,10 @@ const PANTRY_STAPLES = new Set([
   'onion powder',
 ]);
 
-// Noms de fromages canoniques : si présent dans les tokens et que "cheese" est en suffixe,
-// on retire "cheese" (ex: "mozzarella cheese" → "mozzarella")
-// MAIS on ne touche pas à "blue cheese", "cottage cheese" etc. (le mot principal est ailleurs)
+// Stopwords à filtrer APRÈS la singularisation (pluralize peut recréer ces mots à partir de pluriels).
+// Exemple : "halves" → "half" (qui réapparaît même si on avait strippé "half" en regex).
+const POST_SINGULAR_STOPWORDS = new Set(['half', 'piece', 'each']);
+
 const CHEESE_NAMES = new Set([
   'mozzarella',
   'parmesan',
@@ -90,8 +106,6 @@ const CHEESE_NAMES = new Set([
   'havarti',
 ]);
 
-// Mapping canonique : équivalences vers une forme unique
-// Appliqué une fois sur chaque token, et une fois sur le résultat complet
 const CANONICAL_MAP: Record<string, string> = {
   parmigiano: 'parmesan',
   'parmigiano-reggiano': 'parmesan',
@@ -105,23 +119,28 @@ function singularize(word: string): string {
 }
 
 function parseIngredient(raw: string): string {
-  // Étape 1 : ne garder que ce qui est avant la première virgule
+  // Étape 1 : ne garder que ce qui est avant la première virgule (et avant "or/and/&/")
   const beforeOr = raw.split(/\s+(?:or|and|&|\/)\s+/i)[0];
   const beforeComma = beforeOr.split(',')[0];
 
   // Étape 2 : nettoyage par regex successives
+  // IMPORTANT : MODIFIERS AVANT PREP_WORDS pour préserver les hyphénés type sun-dried / fire-roasted
   const cleaned = beforeComma
     .toLowerCase()
     .replace(TRADEMARKS, '')
     .replace(PARENS, '')
+    .replace(LEFTOVER_OPEN_PAREN, '')
     .replace(UNICODE_FRACTIONS, '')
     .replace(NUMBERS, '')
     .replace(/%/g, '')
     .replace(UNITS, '')
-    .replace(PREP_WORDS, '')
     .replace(MODIFIERS, '')
+    .replace(PREP_WORDS, '')
+    .replace(STORAGE_FORMS, '')
     .replace(BRANDS, '')
+    .replace(TRAILING_WITH, '')
     .replace(/[.]/g, ' ')
+    .replace(ORPHAN_HYPHEN, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -131,12 +150,13 @@ function parseIngredient(raw: string): string {
   // Étape 4 : tokenisation + singularisation, en filtrant les tokens vides
   let tokens = stripped.split(' ').filter(Boolean).map(singularize);
 
-  // Étape 5 : applique le mapping canonique sur chaque token individuel
-  // (ex: "parmigiano" devient "parmesan" avant la suite du traitement)
+  // Étape 5 : filtre POST-singularisation pour les stopwords (halves → half, etc.)
+  tokens = tokens.filter((t) => !POST_SINGULAR_STOPWORDS.has(t));
+
+  // Étape 6 : applique le mapping canonique sur chaque token individuel
   tokens = tokens.map((t) => CANONICAL_MAP[t] ?? t);
 
-  // Étape 6 : retire le suffixe "cheese" si un nom de fromage canonique est dans les tokens
-  // (ex: "mozzarella cheese" → "mozzarella", mais "blue cheese" reste intact)
+  // Étape 7 : retire le suffixe "cheese" si un nom de fromage canonique est dans les tokens
   if (
     tokens.length > 1 &&
     tokens[tokens.length - 1] === 'cheese' &&
@@ -147,7 +167,7 @@ function parseIngredient(raw: string): string {
 
   const result = tokens.join(' ').trim();
 
-  // Étape 7 : mapping canonique sur le résultat complet (pour les patterns multi-mots)
+  // Étape 8 : mapping canonique sur le résultat complet (pour les patterns multi-mots)
   return CANONICAL_MAP[result] ?? result;
 }
 
@@ -184,13 +204,11 @@ async function main() {
   const recipes: RawRecipe[] = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
   console.log(`📄 Loaded ${recipes.length} recipes from JSON`);
 
-  // ─── Phase 1 : nettoyer les tables pour rendre le seed idempotent ─────────
   console.log('🧹 Clearing existing data...');
   await prisma.recipeIngredient.deleteMany();
   await prisma.recipe.deleteMany();
   await prisma.ingredient.deleteMany();
 
-  // ─── Phase 2 : extraire et insérer en bulk tous les ingrédients uniques ───
   console.log('📦 Extracting unique ingredients...');
   const uniqueIngredients = new Set<string>();
   for (const recipe of recipes) {
@@ -209,19 +227,15 @@ async function main() {
   });
   console.log(`✅ Bulk-inserted ${uniqueIngredients.size} ingredients`);
 
-  // ─── Phase 3 : récupérer le mapping nom → id pour les jointures ───────────
   const allIngredients = await prisma.ingredient.findMany({
     select: { id: true, name: true },
   });
   const idByName = new Map(allIngredients.map((i) => [i.name, i.id]));
 
-  // ─── Phase 4 : insérer chaque recette avec ses lignes de jointure ─────────
   console.log('🍳 Inserting recipes...');
   let insertedCount = 0;
 
   for (const recipe of recipes) {
-    // Déduplique les ingrédients à l'intérieur de cette recette
-    // (ex: "1 cup white sugar" + "½ cup white sugar" → un seul "white sugar")
     const seenNames = new Set<string>();
     const junctionData: { ingredientId: number; rawText: string }[] = [];
 

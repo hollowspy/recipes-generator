@@ -7,6 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import {useIngredients} from "../../Hooks/useIngredients.ts";
 import {useDebounce} from "../../Hooks/useDebounce.ts";
 import type {SelectedIngredients} from "../../types.ts";
+import Snackbar from "@mui/material/Snackbar";
 
 type IngredientsSearchProps = {
     onAddIngredient: (ingredient: SelectedIngredients) => void,
@@ -24,6 +25,7 @@ export const IngredientsSearch = ({onAddIngredient}: IngredientsSearchProps) => 
         hasNextPage,
         isFetchingNextPage,
         isFetching,
+        error
     } = useIngredients(debouncedSearch);
     const options = data?.pages.flatMap(p => p._data) ?? [];
 
@@ -32,10 +34,12 @@ export const IngredientsSearch = ({onAddIngredient}: IngredientsSearchProps) => 
         setOpen(true);
     }
 
-    const onSelectIngredient = (ingredient: SelectedIngredients) => {
-        setSearch('');
-        onAddIngredient(ingredient)
-        setOpen(false);
+    const onSelectIngredient = (ingredient: SelectedIngredients | null) => {
+        if (ingredient) {
+            setSearch('');
+            onAddIngredient(ingredient)
+            setOpen(false);
+        }
     }
 
     const handleScroll = (event: React.UIEvent<HTMLElement>) => {
@@ -49,45 +53,55 @@ export const IngredientsSearch = ({onAddIngredient}: IngredientsSearchProps) => 
     };
 
 
-
     return (
-        <Container sx={{padding: 2}} maxWidth="sm">
-            <Typography variant="h6" gutterBottom>
-                Search Ingredients
-            </Typography>
-            <Autocomplete
-                sx={{width: '100%'}}
-                open={open}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                getOptionLabel={(option) => option.name}
-                options={options}
-                loading={isFetching}
-                onInputChange={(_, value) => onSearchIngredient(value)}
-                onChange={(_, value: SelectedIngredients) => onSelectIngredient(value)}
-                slotProps={{
-                    listbox: { onScroll: handleScroll },
-                }}
-                renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label="Ingredients"
-
-                        slotProps={{
-                            ...params.slotProps,
-                            input: {
-                                ...params.slotProps.input,
-                                endAdornment: (
-                                    <>
-                                        {isFetching ? <CircularProgress color="inherit" size={20}/> : null}
-                                        {params.slotProps.input.endAdornment}
-                                    </>
-                                ),
-                            },
-                        }}
-                    />
-                )}
-            />
-        </Container>
+        <>
+            {error &&
+                <Snackbar
+                    open={true}
+                    autoHideDuration={5000}
+                    message="Error on fetch ingredients"
+                />
+            }
+            <Container sx={{padding: 2}} maxWidth="sm">
+                <Typography variant="h6" gutterBottom>
+                    Search Ingredients
+                </Typography>
+                <Autocomplete
+                    sx={{width: '100%'}}
+                    open={open}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    getOptionLabel={(option) => option.name}
+                    options={options}
+                    loading={isFetching}
+                    value={null}
+                    inputValue={search}
+                    onInputChange={(_, value) => onSearchIngredient(value)}
+                    onChange={(_, value: SelectedIngredients | null) => onSelectIngredient(value)}
+                    slotProps={{
+                        listbox: {onScroll: handleScroll},
+                    }}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            label="Ingredients"
+                            placeholder="Search Ingredients"
+                            slotProps={{
+                                ...params.slotProps,
+                                input: {
+                                    ...params.slotProps.input,
+                                    endAdornment: (
+                                        <>
+                                            {isFetching ? <CircularProgress color="inherit" size={20}/> : null}
+                                            {params.slotProps.input.endAdornment}
+                                        </>
+                                    ),
+                                },
+                            }}
+                        />
+                    )}
+                />
+            </Container>
+        </>
     )
 }
 

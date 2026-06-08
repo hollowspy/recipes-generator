@@ -15,11 +15,13 @@ import {useRecipeById} from "../../Hooks/useRecipeById.ts";
 import CircularProgress from '@mui/material/CircularProgress';
 import {resolveImageUrl} from "../../Utils/resolveImageUrl.ts";
 import type {Ingredients} from "../../types.ts";
+import Snackbar from "@mui/material/Snackbar";
+
 
 
 export const Recipe = () => {
     const { recipeId } = useParams();
-    const { data,  isFetching} = useRecipeById(recipeId);
+    const { data, error, isFetching} = useRecipeById(recipeId);
     return (
         <Box sx={{padding: 4, margin: 1, backgroundColor: '#BED3C6', boxShadow: 3, minHeight: '10vh'}}>
             {isFetching &&
@@ -27,7 +29,14 @@ export const Recipe = () => {
                     <CircularProgress aria-label="Loading…" />
                 </Box>
             }
-            {!isFetching &&
+            {error &&
+                <Snackbar
+                    open={true}
+                    autoHideDuration={5000}
+                    message="Error on fetch recipe by Id"
+                />
+            }
+            {!isFetching && !error && data &&
                 <>
                     <Grid sx={{marginBottom: 2}} container spacing={4}>
                         <Grid size={10}>
@@ -84,9 +93,7 @@ export const Recipe = () => {
                         </Grid>
                     </Grid>
                 </>
-
             }
-
         </Box>
     )
 }

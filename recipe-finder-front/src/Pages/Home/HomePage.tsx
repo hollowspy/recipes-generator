@@ -9,6 +9,7 @@ import {ListRecipes} from "../../Components/Recipes/ListRecipes.tsx";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import type {SelectedIngredients} from "../../types.ts";
+import Snackbar  from '@mui/material/Snackbar'
 
 
 export const HomePage = () => {
@@ -16,7 +17,7 @@ export const HomePage = () => {
     const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredients[]>([]);
     const [submittedIngredients, setSubmittedIngredients] = useState<SelectedIngredients[]>([]);
     const [page, setPage] = useState(1);
-    const {data, isFetching} = useRecipeMatching(submittedIngredients, page);
+    const {data, error, isFetching} = useRecipeMatching(submittedIngredients, page);
     const { _data: recipes = [], _metadata } = data ?? {};
 
 
@@ -44,6 +45,13 @@ export const HomePage = () => {
 
     return (
         <>
+            {error && <div>
+                <Snackbar
+                    open={true}
+                    autoHideDuration={5000}
+                    message="Error on matching recipes"
+                />
+            </div>}
             <Box sx={{padding: 1, margin: 1, backgroundColor: '#BED3C6', boxShadow: 3, minHeight: '10vh'}}>
                 <Grid container spacing={2}>
                     <Grid size={{xs: 12, md: 6}}>
